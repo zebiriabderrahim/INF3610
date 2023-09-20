@@ -44,7 +44,7 @@
 #include <xil_exception.h>
 
 
-// À utiliser pour suivre le remplissage et le vidage des fifos
+// Ã€ utiliser pour suivre le remplissage et le vidage des fifos
 // Mettre en commentaire et utiliser la fonction vide suivante si vous ne voulez pas de trace
 #if FULL_TRACE == 1
 #define safeprintf(fmt, ...)															\
@@ -117,7 +117,7 @@ int create_events() {
 	OSMutexCreate(&mutPrint, "mutPrint", &err);
 	OSMutexCreate(&mutAlloc, "mutAlloc", &err);
 
-	// Creation des files externes - va servir à la manipulation 2
+	// Creation des files externes - va servir Ã  la manipulation 2
 	OSQCreate(&source_errQ, "source_errQ", 1024, &err);
 	OSQCreate(&crc_errQ, "crc_errQ", 1024, &err);
 
@@ -140,7 +140,7 @@ int create_events() {
 /*
  *********************************************************************************************************
  *											  TaskGeneratePacket
- *  - Génère des paquets et les envoie dans la InputQ.
+ *  - GÃ©nÃ¨re des paquets et les envoie dans la InputQ.
  *
  *
  *********************************************************************************************************
@@ -172,8 +172,10 @@ void TaskGenerate(void *data) {
 				packet->data[i] = (unsigned int)rand();
 			packet->data[0] = ++nbPacketCrees;
 
-			// Code à compléter pour la manipulation 1 i.e. le calcul du CRC avec injection de fautes
-			// TODO 1
+			// Code Ã  complÃ©ter pour la manipulation 1 i.e. le calcul du CRC avec injection de fautes
+			packet->crc = 0;
+			packet->crc = _computeCRC((uint16_t*) (packet), sizeof(*packet));
+			if ((nbPacketCrees % 10) == 0) ++packet->crc;
 
 
 #if FULL_TRACE == 1
@@ -202,7 +204,7 @@ void TaskGenerate(void *data) {
 
 			OSTimeDlyHMSM(0, 0, 0, 1, OS_OPT_TIME_HMSM_STRICT, &err);
 
-			if ((nbPacketCrees % packGenQty) == 0) //On genère au maximum 255 paquets par phase de géneration
+			if ((nbPacketCrees % packGenQty) == 0) //On genÃ¨re au maximum 255 paquets par phase de gÃ©neration
 				{
 					safeprintf("\n***** FIN DE LA RAFALE No %d \n\n", nb_rafales);
 					isGenPhase = false;
@@ -268,16 +270,18 @@ void TaskStop(void* data){
 
 unsigned int computeCRC(uint16_t* w,int nleft){
 	uint16_t answer = 0;
-
-	// Code à compléter pour le calcul du nombre de ticks dans la manipulation 1
-	// TODO 1
+	OS_ERR err;
+	// Code Ã  complÃ©ter pour le calcul du nombre de ticks dans la manipulation 1
+	OS_TICK Nb_of_ticks_in_CRC_init = 0;
+	Nb_of_ticks_in_CRC_init = OSTimeGet(&err);
 	for (int i = 0; i < NB_CRC_TO_MATCH; i++)
 	{
 		answer = _computeCRC(w, nleft);
 	}
+	nb_CPU_tick_CRC_total += (OSTimeGet(&err) - Nb_of_ticks_in_CRC_init);
+	++nb_calls_crc;
 	return answer;
-	// Code à compléter pour le calcul du nombre de ticks dans la manipulation 1
-	// TODO 1
+	// Code Ã  complÃ©ter pour le calcul du nombre de ticks dans la manipulation 1
 }
 
 unsigned int  _computeCRC(uint16_t* w, int nleft) {
@@ -309,7 +313,7 @@ unsigned int  _computeCRC(uint16_t* w, int nleft) {
 /*
  *********************************************************************************************************
  *											  TaskComputing
- *  -Vérifie si les paquets sont conformes i.e. qu on emule un CRC et on verifie l'espace addresse
+ *  -VÃ©rifie si les paquets sont conformes i.e. qu on emule un CRC et on verifie l'espace addresse
  *  -Dispatche les paquets dans des files (HIGH,MEDIUM,LOW)
  *
  *********************************************************************************************************
@@ -333,8 +337,8 @@ void TaskComputing(void *pdata) {
 		/* On simule un temps de traitement comme CRC */
 		/* N.B. On ne rejette aucun paquet pour le moment donc nbPacketCRCRejete et nbPacketCRCRejeteTotal reste a 0 */
 		// TODO 1
-		actualticks = OSTimeGet(&err);
-		while (WAITFORComputing + actualticks > OSTimeGet(&err));
+		// actualticks = OSTimeGet(&err);
+		// while (WAITFORComputing + actualticks > OSTimeGet(&err));
 
 		//Verification de l'espace d'addressage
 		if ((packet->src > REJECT_LOW1 && packet->src < REJECT_HIGH1) ||
@@ -343,18 +347,20 @@ void TaskComputing(void *pdata) {
 
 				++nbPacketSourceRejete;
 
-				// On pourra énumerer les paquets rejetés au moment de l'affichage des statistiques si print_paquets_rejetes = 1
-				// Aussi ce code sera à modifier dans la manipulation 2 pour un fifo externe
+				// On pourra Ã©numerer les paquets rejetÃ©s au moment de l'affichage des statistiques si print_paquets_rejetes = 1
+				// Aussi ce code sera Ã  modifier dans la manipulation 2 pour un fifo externe
 				// TODO 2
-				OSTaskQPost(&TaskStatsTCB, packet, sizeof(packet), OS_OPT_POST_FIFO + OS_OPT_POST_NO_SCHED, &err);
+				OSQPost(&source_errQ, packet, sizeof(packet), OS_OPT_POST_FIFO + OS_OPT_POST_NO_SCHED, &err);
 
 
 		}
 		/* TODO 1 TODO 2
-		 Code à completer pour le test du CRC de la manipulation no 1, ce qui permettra de retirer les ligne de l'attente active plus haut
+		 Code Ã  completer pour le test du CRC de la manipulation no 1, ce qui permettra de retirer les ligne de l'attente active plus haut
 		 Notez aussi que dans la manipulation 1 vous devez mettre le paquet dans &TaskStatsTCB alors que dans la manipulation 2 le paqet sera mis dans un fifo externe */
-		// else if(...){
-		// }
+		else if(computeCRC((uint16_t*)packet, sizeof(*packet)) != 0){
+				++nbPacketCRCRejete;
+				OSQPost(&crc_errQ, packet, sizeof(packet), OS_OPT_POST_FIFO + OS_OPT_POST_NO_SCHED, &err);
+		}
 		else {
 
 			//Dispatche les paquets selon leur type
@@ -392,8 +398,8 @@ void TaskComputing(void *pdata) {
 /*
  *********************************************************************************************************
  *											  TaskForwarding
- *  -traite la priorité des paquets : si un paquet de haute priorité est prêt,
- *   on l'envoie à l'aide de la fonction dispatch_packet, sinon on regarde les paquets de moins haute priorité
+ *  -traite la prioritÃ© des paquets : si un paquet de haute prioritÃ© est prÃªt,
+ *   on l'envoie Ã  l'aide de la fonction dispatch_packet, sinon on regarde les paquets de moins haute prioritÃ©
  *   Remarque: on bloque jamais donc la tache doit avoir une basse priorite
  *********************************************************************************************************
  */
@@ -431,7 +437,7 @@ void TaskFIFOForwarding(void *data) {
 /*
  *********************************************************************************************************
  *											  Fonction Dispatch
- *  -Envoie le paquet passé en paramètre vers la mailbox correspondante à son adressage destination
+ *  -Envoie le paquet passÃ© en paramÃ¨tre vers la mailbox correspondante Ã  son adressage destination
  *********************************************************************************************************
  */
  void dispatch_packet (Packet* packet){
@@ -493,7 +499,7 @@ void TaskFIFOForwarding(void *data) {
 /*
  *********************************************************************************************************
  *											  TaskPrint
- *  -Affiche les infos des paquets arrivés à destination et libère la mémoire allouée
+ *  -Affiche les infos des paquets arrivÃ©s Ã  destination et libÃ¨re la mÃ©moire allouÃ©e
  *********************************************************************************************************
  */
 void TaskOutputPort(void *data) {
@@ -521,7 +527,7 @@ void TaskOutputPort(void *data) {
 		OSMutexPost(&mutPrint, OS_OPT_POST_NONE, &perr);
 #endif
 
-		/*Libération de la mémoire*/
+		/*LibÃ©ration de la mÃ©moire*/
 		OSMutexPend(&mutAlloc, 0, OS_OPT_PEND_BLOCKING, &ts, &err);
 			free(packet);
 		OSMutexPost(&mutAlloc, OS_OPT_POST_NONE, &err);
@@ -531,11 +537,11 @@ void TaskOutputPort(void *data) {
 
 /*********************************************************************************************************
  *                                              TaskStats
- *  -Est déclenchée lorsque le gpio_isr() libère le sémaphore
- *  -Lorsque déclenchée, imprime les statistiques du routeur 
+ *  -Est dÃ©clenchÃ©e lorsque le gpio_isr() libÃ¨re le sÃ©maphore
+ *  -Lorsque dÃ©clenchÃ©e, imprime les statistiques du routeur 
  *********************************************************************************************************/
  void TaskStats(void* pdata) {
-	OS_ERR err, perr;
+	OS_ERR err, perr, err_Q_crc,err_Q;
 	CPU_TS ts;
 	OS_TICK actualticks;
 	Packet* packet = NULL;
@@ -567,25 +573,40 @@ void TaskOutputPort(void *data) {
 		xil_printf("14- Message free : %d \n", OSMsgPool.NbrFree);
 		xil_printf("15- Message used : %d \n", OSMsgPool.NbrUsed);
 		xil_printf("16- Message used max : %d \n", OSMsgPool.NbrUsedMax);
-		xil_printf("17- Nombre de ticks depuis le début de l'execution %d \n", OSTimeGet(&err));	
+		xil_printf("17- Nombre de ticks depuis le dÃ©but de l'execution %d \n", OSTimeGet(&err));	
 		// TODO 1
-		// Ligne suivante à completer pour la manipulation 1
-		// xil_printf("18- Nombre de call et nombre de ticks CPU moyens dans CRC %d %d\n", ...);
+		// Ligne suivante Ã  completer pour la manipulation 1
+		xil_printf("18- Nombre de call et nombre de ticks CPU moyens dans CRC: %d calls, %d ticks\n", nb_calls_crc, (int)(nb_CPU_tick_CRC_total/nb_calls_crc));
 
 		OSMutexPost(&mutPrint, OS_OPT_POST_NONE, &err);
 
-		// On vide la fifo des paquets rejetés et on imprime si l option est demandee
-		// Aussi le code suivant sera à modifier dans la manipulation 2
+		// On vide la fifo des paquets rejetÃ©s et on imprime si l option est demandee
+		// Aussi le code suivant sera Ã  modifier dans la manipulation 2
 
 		while(1) {
+			int toggle = false;
+			OS_Q* queue;
+			if (!toggle) {
+				queue = &crc_errQ;
+			} else queue = &source_errQ;
 
-			packet = OSTaskQPend(0, OS_OPT_PEND_NON_BLOCKING, &msg_size, &ts, &err);  // On prend soin de ne pas rester bloqué
+			packet = OSQPend(queue, 0, OS_OPT_PEND_NON_BLOCKING, &msg_size, &ts, &err);  // On prend soin de ne pas rester bloquÃ©
+
+			if (err == OS_ERR_PEND_WOULD_BLOCK) {
+				toggle = !toggle;
+				if (!toggle) {
+					queue = &crc_errQ;
+				} else queue = &source_errQ;
+
+				packet = OSQPend(queue, 0, OS_OPT_PEND_NON_BLOCKING, &msg_size, &ts, &err);
+			}
+
             if (err == OS_ERR_PEND_WOULD_BLOCK) {
                 break;
             }
             else {
 
-			if (print_paquets_rejetes)  {
+			if (print_paquets_rejetes_source || print_paquets_rejetes_crc)  {
 				OSMutexPend(&mutPrint, 0, OS_OPT_PEND_BLOCKING, &ts, &err);
 				xil_printf("    >> paquet rejete # : %d \n", packet->data[0]);
 				xil_printf("    >> src : %x \n", packet->src);
@@ -607,6 +628,9 @@ void TaskOutputPort(void *data) {
 		nbPacketSourceRejeteTotal += nbPacketSourceRejete;
 		nbPacketSourceRejete = 0;
 
+		nbPacketCRCRejeteTotal += nbPacketCRCRejete;
+		nbPacketCRCRejete = 0;
+
 		// On stoppe tout le programme quand on a atteint la limite de paquets
 		if (nbPacketCrees > limite_de_paquets)  OSSemPost(&Sem,  OS_OPT_POST_1 + OS_OPT_POST_NO_SCHED, &err);
 
@@ -623,7 +647,7 @@ void err_msg(char* entete, uint8_t err)
 	if(err != 0)
 	{
 		xil_printf(entete);
-		xil_printf(": Une erreur est retournée : code %d \n",err);
+		xil_printf(": Une erreur est retournÃ©e : code %d \n",err);
 	}
 }
 
@@ -704,7 +728,7 @@ void StartupTask (void *p_arg)
     UCOS_Print("Programme initialise - \r\n");
 
 
-	// On créé les tâches
+	// On crÃ©Ã© les tÃ¢ches
 
 	for(i = 0; i < NB_FIFO; i++)
 	{
