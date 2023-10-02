@@ -136,7 +136,7 @@ OS_Q crc_errQ;
  *                  Semaphores
  **************************************************/
 
-// Pas de sÃ©maphore pour la partie 1 
+// Pas de sémaphore pour la partie 1 
 
 /* ************************************************
  *                  Mutexes
@@ -149,18 +149,18 @@ OS_MUTEX mutPrint;
 
 /*DECLARATION DES COMPTEURS POUR STATISTIQUES*/
 int nbPacketCrees = 0;								// Nb de packets total crees
-int nbPacketTraites = 0;							// Nb de paquets envoyÃ©s sur une interface
-int nbPacketSourceRejeteTotal = 0;					// Nb de packets total rejetÃ©s pour mauvaise source
-int nbPacketSourceRejete = 0;						// Nb de packets rejetÃ© pour mauvaise source pour 30 sec
-int nbPacketCRCRejete = 0;							// Nb de packets total rejetÃ©s pour mauvaise CRC
-int nbPacketCRCRejeteTotal = 0;						// Nb de packets total rejetÃ©s total pour mauvaise CRC
-CPU_TS64 nb_CPU_tick_CRC_total = 0;					// Nb de tick CPU (CPU_TS) passÃ©s dans computeCRC
-int nb_calls_crc = 0;								// Nb d'appels Ã  computeCRC
-int packet_rejete_fifo_pleine_inputQ = 0;			// Utilisation de la fifo d'entrÃ©e
+int nbPacketTraites = 0;							// Nb de paquets envoyés sur une interface
+int nbPacketSourceRejeteTotal = 0;					// Nb de packets total rejetés pour mauvaise source
+int nbPacketSourceRejete = 0;						// Nb de packets rejeté pour mauvaise source pour 30 sec
+int nbPacketCRCRejete = 0;							// Nb de packets total rejetés pour mauvaise CRC
+int nbPacketCRCRejeteTotal = 0;						// Nb de packets total rejetés total pour mauvaise CRC
+CPU_TS64 nb_CPU_tick_CRC_total = 0;					// Nb de tick CPU (CPU_TS) passés dans computeCRC
+int nb_calls_crc = 0;								// Nb d'appels à computeCRC
+int packet_rejete_fifo_pleine_inputQ = 0;			// Utilisation de la fifo d'entrée
 int packet_rejete_output_port_plein = 0;			// Utilisation des MB
 int packet_rejete_fifo_pleine_Q = 0;
-int delai_pour_vider_les_fifos_sec = 1;
-int delai_pour_vider_les_fifos_msec = 0;
+int delai_pour_vider_les_fifos_sec = 0;
+int delai_pour_vider_les_fifos_msec = 250;
 int print_paquets_rejetes_crc = 0;
 int print_paquets_rejetes_source = 0;
 int limite_de_paquets= 20000;
